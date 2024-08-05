@@ -2,7 +2,7 @@ import requests
 from whatsapp_chatbot_python import GreenAPIBot, Notification, BaseStates
 from whatsapp_chatbot_python.filters import TEXT_TYPES
 
-from conf import bot, API_BASE_URL, ALL_STUDENTS_ENDPOINT
+from conf import bot, API_BASE_URL, ALL_STUDENTS_ENDPOINT, retrieve_annonce_images, file_sender
 
 ID = "1"  # Correction de la déclaration globale
 
@@ -25,6 +25,8 @@ def start_handler(notification: Notification) -> None:
     response = requests.get(f"{API_BASE_URL}{ALL_STUDENTS_ENDPOINT}")
     if response.status_code == 200:
         students_data = response.json()
+        print(students_data)
+
         for student in students_data:
             # Conversion du num pour le chatbot
             valid_number = '223' + student['user']['telephone'] + '@c.us'
@@ -60,16 +62,31 @@ def menu_handler(notification: Notification) -> None:
         student_data = response.json()
         print(student_data)
         if selected_option == '1':
-            print('yes')
-            # for module in student_data['modules']:
+            for module in student_data['modules']:
+                moyenne = (module['pivot']['note_classe'] + module['pivot']['note_examen']) / 2
+                notification.answer(
+                    f"*{module['nom_module']}* : \n"
+                    f"Note de classe : *{module['pivot']['note_classe']}/20* \n"
+                    f"Note d'examen : *{module['pivot']['note_examen']}/20* \n"
+                    f"Moyenne : {moyenne}"
+                )
 
         elif selected_option == '2':
             notification.answer("Voici vos annonces :")
-            notification.answer("Annonce 1 : Participation à un concert")
-            notification.answer("Annonce 2 : Rendez-vous à la bibliothèque")
+            for annonce in student_data['filiere']['annonces']:
+                notification.answer(f"Titre : *{annonce['titre']}* \n"
+                                    f"Description : *{annonce['contenu']}* \n"
+                                    f"Date de debut : *{annonce['dateDebut']}*\n"
+                                    f"Date de fin : *{annonce['dateFin']}*")
+                # if annonce['image_path']:
+                #     file_sender(sender, annonce['image_path'], annonce['titre'], "Image de l'annonce")
+
         elif selected_option == '3':
+            montant_formation = student_data['filiere']['montant_formation']
+            restant = float(montant_formation) - float(student_data['etat_paiement'])
             notification.answer("Voici votre statut de paiement :")
-            notification.answer("Paiement effectué")
+            notification.answer(f"Vous avez paye : *{student_data['etat_paiement']}* FCFA \n"
+                                f"IL vous reste {restant} FCFA")
         else:
             notification.answer("Veuillez choisir une option valide!")
     else:
